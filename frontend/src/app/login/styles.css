@@ -1,0 +1,149 @@
+/* glass-login.css */
+
+/* Base styles */
+.glass-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-image: url('https://i.ibb.co/Z6NdKVws/dominic-kurniawan-suryaputra-r0-U2y0-Hhd-GE-unsplash.jpg');
+    background-size: cover;
+    background-position: center;
+    padding: 20px;
+}
+
+/* Glass morphism effect */
+.glass-form {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 2.5rem;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    width: 100%;
+    max-width: 400px;
+}
+
+/* Heading styles */
+.glass-heading {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    color: white;
+    text-align: center;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Input container */
+.input-group {
+    position: relative;
+    margin-bottom: 1.2rem;
+    width: 100%;
+}
+
+/* Input styles */
+.glass-input {
+    background: rgba(255, 255, 255, 0.85);
+    border: none;
+    padding: 1rem;
+    width: 100%;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+
+    &:focus {
+        outline: none;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+    }
+}
+
+
+
+/* Show password toggle */
+.password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #4b5563;
+    padding: 5px;
+}
+
+/* Button styles */
+.glass-btn {
+    background: rgba(255, 255, 255, 0.9);
+    color: #2563eb;
+    padding: 1rem;
+    border: none;
+    border-radius: 10px;
+    width: 100%;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+
+    &:hover {
+        background: rgb(69, 2, 255);
+        color: rgb(255, 255, 255);
+        transform: translateY(3px);
+    }
+}
+
+
+
+/* Links */
+.glass-link {
+    color: white;
+    text-decoration: none;
+    font-size: 0.9rem;
+    text-align: center;
+    display: block;
+    margin-top: 1rem;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.glass-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+/* Error message */
+.glass-error {
+    color: #ff0000;
+    margin-top: 1rem;
+    text-align: center;
+    font-size: 0.9rem;
+    text-shadow: 0 1px 2px rgba(180, 156, 156, 0.1);
+}
+
+/* Remember me checkbox */
+.remember-me {
+    display: flex;
+    align-items: center;
+    margin: 1rem 0;
+    color: white;
+    font-size: 0.9rem;
+}
+
+.remember-me input {
+    margin-right: 8px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .glass-form {
+        padding: 1.5rem;
+    }
+
+    .glass-heading {
+        font-size: 1.5rem;
+    }
+}
