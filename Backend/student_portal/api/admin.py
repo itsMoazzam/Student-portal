@@ -12,11 +12,12 @@ class CustomUserAdmin(UserAdmin):
     )
 
 # Register Student model
+
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ('user', 'degree_completed', 'created_at')
-    list_filter = ('degree_completed',)
-    search_fields = ('user__username', 'user__email')
+    list_display = ('id', 'get_username', 'admission_number', 'course', 'created_at')
+    list_filter = ('course', 'created_at')
+
 
 # Register ActivityLog model
 @admin.register(ActivityLog)

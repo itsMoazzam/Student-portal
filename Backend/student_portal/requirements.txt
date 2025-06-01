@@ -1,0 +1,5 @@
+Django==5.2
+django-cors-headers==4.7.0
+djangorestframework==3.15.1
+bcrypt==3.2.0
+djangorestframework-simplejwt) (4.13.2)

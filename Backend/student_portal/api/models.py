@@ -5,14 +5,31 @@ class User(AbstractUser):
     is_student = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)  # Use carefully alongside is_staff and is_superuser
 
+
 class Student(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
-    degree_completed = models.BooleanField(default=False)
-    certificate = models.FileField(upload_to='certificates/', null=True, blank=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    admission_number = models.CharField(max_length=50, unique=True, blank=True)  # <-- Added default
+    category = models.CharField(max_length=100, blank=True, null=True)
+    course = models.ForeignKey('Course', on_delete=models.SET_NULL, null=True, blank=True)
+    class_id = models.ForeignKey('StudentClass', on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    degree_completed = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if not self.admission_number and self.user:
+            base = self.user.username.lower()
+            existing = Student.objects.filter(admission_number__startswith=base).count() + 1
+            self.admission_number = f"{base}-{str(existing).zfill(3)}"
+        super().save(*args, **kwargs)
+    
+    def get_username(self):
+        return self.user.username  # or use self.user.get_full_name()
+
+    get_username.short_description = "Username"
 
     def __str__(self):
-        return self.user.username
+        return f"{self.user.get_full_name()} ({self.admission_number})"
+
 
 class ActivityLog(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='activity_logs')
@@ -31,3 +48,45 @@ class Marks(models.Model):
 
     def __str__(self):
         return f"{self.subject} - {self.student.user.username}"
+    
+# class Student(models.Model):
+#     user = models.OneToOneField(User, on_delete=models.CASCADE)
+#     category = models.CharField(max_length=100, blank=True, null=True)
+    # rest of fields...
+
+class Task(models.Model):
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    deadline = models.DateField()
+    github_repo = models.URLField(blank=True, null=True)
+    assigned_to = models.ManyToManyField(Student, related_name='tasks')
+
+class TaskSubmission(models.Model):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    submission_link = models.URLField()
+    review_status = models.CharField(
+        max_length=20,
+        choices=[('Satisfied', 'Satisfied'), ('Unsatisfied', 'Unsatisfied'), ('Try Again', 'Try Again')],
+        default='Try Again'
+    )
+
+class Message(models.Model):
+    sender = models.ForeignKey(User, related_name='sent_messages', on_delete=models.CASCADE)
+    receiver = models.ForeignKey(User, related_name='received_messages', on_delete=models.CASCADE)
+    content = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+class Course(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+
+class StudentClass(models.Model):  # Do NOT use 'Class' as it's a Python keyword
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+

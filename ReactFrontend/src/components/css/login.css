@@ -1,0 +1,136 @@
+main {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: url('https://i.ibb.co/Z6NdKVws/dominic-kurniawan-suryaputra-r0-U2y0-Hhd-GE-unsplash.jpg');
+    background-size: cover;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-position: center;
+    /* padding: 20px; */
+}
+
+.glass-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.glass-form {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    padding: 2.5rem 3.5rem 2.5rem 2rem;
+    max-width: 400px;
+    width: 400px;
+    /* 🔒 Fix the width to prevent fluctuation */
+}
+
+
+.glass-heading {
+    color: white;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.input-group {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.glass-input {
+    width: 100%;
+    padding: 12px 5px 12px 17px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(230, 241, 255, 0.685);
+    color: rgb(70, 68, 68);
+    font-size: 1.2rem;
+
+    &:focus {
+        outline: none;
+        background: rgba(223, 231, 252, 0.514);
+    }
+
+    &::placeholder {
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+}
+
+
+
+
+.input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgb(255, 255, 255);
+    font-size: 18px;
+    pointer-events: none;
+
+}
+
+.glass-input.with-icon {
+    padding-left: 40px;
+    /* Space for the icon */
+
+}
+
+.password-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    margin-right: -2rem;
+    color: white;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.remember-me {
+    color: white;
+    font-size: 14px;
+}
+
+.glass-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    background-color: #3106f0;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 20px;
+
+    font-size: 1.2rem;
+
+    &:hover {
+        background-color: #0400ff;
+
+    }
+
+}
+
+.glass-error {
+    color: #ff4d4f;
+    font-size: 0.9rem;
+    margin-top: 10px;
+    transition: opacity 0.3s ease;
+    min-height: 20px;
+    white-space: pre-wrap;
+}
+
+.glass-error-container {
+    min-height: 24px;
+    /* Adjust based on expected height */
+}

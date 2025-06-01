@@ -1,0 +1,47 @@
+.admin-dashboard {
+    padding: 30px;
+    font-family: Arial, sans-serif;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.student-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.student-card {
+    border: 1px solid #ccc;
+    padding: 15px;
+    width: 280px;
+    border-radius: 6px;
+    background-color: #f9f9f9;
+}
+
+.button-group {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.upload-label input {
+    display: none;
+}
+
+.upload-label {
+    font-size: 14px;
+    margin-top: 5px;
+    cursor: pointer;
+    color: #1976d2;
+    border: 1px dashed #1976d2;
+    padding: 6px 10px;
+    text-align: center;
+    border-radius: 5px;
+}
