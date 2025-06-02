@@ -34,6 +34,7 @@ const StudentList = () => {
               <td>{student.id}</td>
               <td>{student.user.username}</td>
               <td>{student.user.email}</td>
+
               <td>{student.degree_completed ? "Yes" : "No"}</td>
               <td>{new Date(student.created_at).toLocaleString()}</td>
             </tr>

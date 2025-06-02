@@ -3,11 +3,16 @@ from .models import Student, User, ActivityLog, Marks, Message
 from django.contrib.auth.password_validation import validate_password
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import permissions, generics
-from .models import Task 
+from .models import Task ,Category
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email']
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = "__all__"        
 
 class MarksSerializer(serializers.ModelSerializer):
     class Meta:
@@ -28,25 +33,37 @@ class TaskSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CreateStudentSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username')
-    email = serializers.EmailField(source='user.email')
-    password = serializers.CharField(write_only=True)
+    full_name = serializers.CharField(write_only=True)
+    category = serializers.CharField()
+    role = serializers.ChoiceField(choices=["student", "subadmin", "admin"])
 
     class Meta:
-        model = Student
-        fields = ['username', 'email', 'password']  # add others if needed
+        model = User
+        fields = ['username', 'email', 'password', 'full_name', 'category', 'role']
 
     def create(self, validated_data):
-        user_data = validated_data.pop('user')
-        password = validated_data.pop('password')
+        full_name = validated_data.pop('full_name')
+        category = validated_data.pop('category')
+        role = validated_data.pop('role')
+        username = validated_data.get('username')
+
+        if not username:
+            username = full_name.split()[0].lower()  # default username from full name
+            validated_data['username'] = username
+
         user = User.objects.create(
-            username=user_data['username'],
-            email=user_data['email']
+            username=username,
+            email=validated_data['email'],
+            first_name=full_name.split()[0],
+            last_name=" ".join(full_name.split()[1:]) if len(full_name.split()) > 1 else "",
         )
-        user.set_password(password)
+        user.set_password(validated_data['password'])
         user.save()
-        student = Student.objects.create(user=user, **validated_data)
-        return user 
+
+        # Create student or sub-admin etc.
+        Student.objects.create(user=user, category=category, role=role)
+
+        return user
 
 class LogSerializer(serializers.ModelSerializer):
     class Meta:
@@ -72,4 +89,26 @@ class MessageView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return Message.objects.all()
-   
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name']
+
+class StudentProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = Student
+        fields = [
+            'id',
+            'user',
+            'github_url',
+            'linkedin_url',
+            'is_public',
+            'is_approved',
+            'approval_requested',
+            'degree_completed',
+            'category'
+        ]
+        read_only_fields = ['id', 'user', 'is_approved', 'degree_completed']

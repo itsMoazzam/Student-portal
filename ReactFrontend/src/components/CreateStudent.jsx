@@ -1,20 +1,36 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/api";
-import { TextField, Button, IconButton, InputAdornment } from "@mui/material";
+import {
+  TextField,
+  Button,
+  IconButton,
+  InputAdornment,
+  MenuItem
+} from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 
 const CreateStudent = () => {
   const [formData, setFormData] = useState({
+    fullName: "",
     username: "",
     email: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    role: "student", // default
+    category: ""
   });
+
+  const [categories, setCategories] = useState([]); // Load categories if dynamic
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // You can fetch categories from backend if needed
+    setCategories(["Python", "JavaScript", "AI", "Full Stack"]);
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -29,25 +45,28 @@ const CreateStudent = () => {
       return;
     }
 
-    const { username, email, password } = formData;
-
-    // Get token from localStorage
     const token = localStorage.getItem("token");
     if (!token) {
       setError("No authentication token found. Please log in again.");
       return;
     }
-    console.log(token);
-    API.post(
-      "/students/create/",
-      { username, email, password },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
+
+    // Prepare payload
+    const payload = {
+      full_name: formData.fullName,
+      username: formData.username, // May be empty, backend handles fallback
+      email: formData.email,
+      password: formData.password,
+      role: formData.role,
+      category: formData.category
+    };
+
+    API.post("/students/create/", payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
       }
-    )
+    })
       .then(() => {
         alert("Student created and email sent.");
         navigate("/admin");
@@ -61,16 +80,23 @@ const CreateStudent = () => {
   };
 
   return (
-    <div className="create-student" style={{ maxWidth: 400, margin: "auto" }}>
+    <div style={{ maxWidth: 400, margin: "auto" }}>
       <h2>Create Student</h2>
       <form onSubmit={handleSubmit}>
         <TextField
-          label="Username"
+          label="Full Name"
+          name="fullName"
+          value={formData.fullName}
+          onChange={handleChange}
+          required
+          fullWidth
+          margin="normal"
+        />
+        <TextField
+          label="Username (optional)"
           name="username"
           value={formData.username}
           onChange={handleChange}
-          autoComplete="off"
-          required
           fullWidth
           margin="normal"
         />
@@ -80,7 +106,6 @@ const CreateStudent = () => {
           type="email"
           value={formData.email}
           onChange={handleChange}
-          autoComplete="off"
           required
           fullWidth
           margin="normal"
@@ -91,7 +116,6 @@ const CreateStudent = () => {
           type={showPassword ? "text" : "password"}
           value={formData.password}
           onChange={handleChange}
-          autoComplete="off"
           required
           fullWidth
           margin="normal"
@@ -99,7 +123,6 @@ const CreateStudent = () => {
             endAdornment: (
               <InputAdornment position="end">
                 <IconButton
-                  aria-label="toggle password visibility"
                   onClick={() => setShowPassword(!showPassword)}
                   edge="end"
                 >
@@ -122,7 +145,6 @@ const CreateStudent = () => {
             endAdornment: (
               <InputAdornment position="end">
                 <IconButton
-                  aria-label="toggle confirm password visibility"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   edge="end"
                 >
@@ -132,13 +154,39 @@ const CreateStudent = () => {
             )
           }}
         />
+        <TextField
+          label="Role"
+          name="role"
+          value={formData.role}
+          onChange={handleChange}
+          required
+          select
+          fullWidth
+          margin="normal"
+        >
+          <MenuItem value="student">Student</MenuItem>
+          <MenuItem value="subadmin">Sub-Admin</MenuItem>
+          <MenuItem value="admin">Admin</MenuItem>
+        </TextField>
 
-        {error && (
-          <p style={{ color: "red", marginTop: 0, marginBottom: 16 }}>
-            {error}
-          </p>
-        )}
+        <TextField
+          label="Category"
+          name="category"
+          value={formData.category}
+          onChange={handleChange}
+          required
+          select
+          fullWidth
+          margin="normal"
+        >
+          {categories.map((cat) => (
+            <MenuItem key={cat} value={cat}>
+              {cat}
+            </MenuItem>
+          ))}
+        </TextField>
 
+        {error && <p style={{ color: "red" }}>{error}</p>}
         <Button type="submit" variant="contained" color="primary" fullWidth>
           Create Student
         </Button>

@@ -1,4 +1,3 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Grid } from "@mui/material";
 import {
@@ -50,7 +49,7 @@ const AdminDashboardButtons = () => {
     {
       label: "Assign Task",
       icon: <ClipboardList size={28} />,
-      route: "/assign-task"
+      route: "/admin/assign-task"
     },
     {
       label: "Review Submissions",
@@ -61,6 +60,11 @@ const AdminDashboardButtons = () => {
       label: "Messaging System",
       icon: <MessageCircle size={28} />,
       route: "/admin/messages"
+    },
+    {
+      label: "Add categories",
+      icon: <MessageCircle size={28} />,
+      route: "/admin/add-category"
     },
     {
       label: "Reports & Certificates",

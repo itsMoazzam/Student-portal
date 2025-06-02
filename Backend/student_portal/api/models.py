@@ -6,14 +6,33 @@ class User(AbstractUser):
     is_admin = models.BooleanField(default=False)  # Use carefully alongside is_staff and is_superuser
 
 
+class Category(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    sub_admin = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, limit_choices_to={'is_staff': True})
+
+    def __str__(self):
+        return self.name
+
+    
 class Student(models.Model):
+    ROLE_CHOICES = (
+        ('student', 'Student'),
+        ('subadmin', 'Sub-admin'),
+        ('admin', 'Admin'),
+    )
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+    github_url = models.URLField(blank=True)
+    linkedin_url = models.URLField(blank=True)
+    is_public = models.BooleanField(default=False)
+    is_approved = models.BooleanField(default=False)
+    approval_requested = models.BooleanField(default=False)
     admission_number = models.CharField(max_length=50, unique=True, blank=True)  # <-- Added default
-    category = models.CharField(max_length=100, blank=True, null=True)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     course = models.ForeignKey('Course', on_delete=models.SET_NULL, null=True, blank=True)
     class_id = models.ForeignKey('StudentClass', on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     degree_completed = models.BooleanField(default=False)
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='student')
 
     def save(self, *args, **kwargs):
         if not self.admission_number and self.user:
@@ -90,3 +109,6 @@ class StudentClass(models.Model):  # Do NOT use 'Class' as it's a Python keyword
     def __str__(self):
         return self.name
 
+
+
+                   

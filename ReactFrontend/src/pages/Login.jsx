@@ -10,14 +10,15 @@ import "../components/css/login.css"; // Ensure you have the correct path to you
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  useAuth();
+  const { setUser } = useAuth();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = async () => {
+  const handleLogin = async (e) => {
+    e.preventDefault();
     if (!username || !password) {
       setError("Please enter both username and password");
       return;
@@ -28,7 +29,9 @@ const LoginPage = () => {
         username,
         password
       });
-      console.log(response.data.access);
+      if (!response.data || !response.data.access) {
+        throw new Error("Invalid server response");
+      }
       const token = response.data.access;
 
       // Save token to localStorage and set Authorization header
@@ -37,16 +40,16 @@ const LoginPage = () => {
 
       // Decode the token to get user role
       const decoded = jwtDecode(token);
-      const role = decoded.is_staff ? "admin" : "student";
-
+      // setUser(decoded);
+      const role = decoded?.is_staff ? "admin" : "student";
+      setUser({ ...decoded, role });
       // Optional: log info
-      console.log("Decoded JWT:", decoded);
-      console.log("User role:", role);
+      console.log(role, "logged in successfully");
 
       // Navigate based on role
       navigate(`/${role}`);
     } catch (error) {
-      console.error("Login failed", error);
+      console.error("Login failed", error?.response?.data || error.message);
       setError("Invalid credentials");
     }
   };

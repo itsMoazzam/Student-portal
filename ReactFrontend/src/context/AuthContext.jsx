@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
     if (token) {
       try {
         const decoded = jwtDecode(token);
-        const role = decoded.is_staff ? "admin" : "student";
+        const role = decoded?.is_staff ? "admin" : "student";
         setUser({ ...decoded, role });
       } catch (err) {
         console.error("Token decoding failed", err);
@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, setUser, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
