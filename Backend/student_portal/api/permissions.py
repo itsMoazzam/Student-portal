@@ -1,9 +1,31 @@
 from rest_framework.permissions import BasePermission
 
-class IsStudent(BasePermission):
-    """
-    Allows access only to users who are NOT admin/staff.
-    """
-
+class IsSubAdmin(BasePermission):
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and not request.user.is_staff
+        return (
+            request.user.is_authenticated and
+            getattr(request.user, 'is_subadmin', False) and
+            hasattr(request.user, 'subadmin')
+        )
+        
+class IsStudent(BasePermission):
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated and
+            getattr(request.user, 'is_student', False)
+        )
+        
+class IsAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated and
+            getattr(request.user, 'is_admin', False)
+        )        
+        
+class IsOwnerOrReadOnly(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return (
+            request.method in ['GET', 'HEAD', 'OPTIONS'] or
+            obj.user == request.user
+        )
+        

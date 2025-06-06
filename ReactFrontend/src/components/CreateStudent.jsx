@@ -72,10 +72,13 @@ const CreateStudent = () => {
         navigate("/admin");
       })
       .catch((err) => {
-        console.error("Error creating student", err);
-        setError(
-          "Failed to create student. Please check the inputs or try again."
-        );
+        if (err.response) {
+          console.error("Backend error response:", err.response.data);
+          setError(JSON.stringify(err.response.data));
+        } else {
+          console.error("Unexpected error:", err);
+          setError("Unexpected error occurred");
+        }
       });
   };
 

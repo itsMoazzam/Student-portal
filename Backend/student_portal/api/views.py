@@ -1,47 +1,63 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from django.contrib.auth.models import User
 from rest_framework.decorators import api_view, permission_classes
-from django.contrib.auth import authenticate
-from rest_framework.authtoken.models import Token
-from .models import Student, ActivityLog, Marks, TaskSubmission, Category
+from .models import Student, ActivityLog,  TaskSubmission, Category,Task
 from .serializers import *
-# from .serializers import TaskSerializer
 from django.core.mail import send_mail
 from django.conf import settings
+from django.contrib.auth import get_user_model
+User = get_user_model()
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .permissions import IsStudent
+from django.shortcuts import get_object_or_404
+from django.utils import timezone  #
+from rest_framework_simplejwt.tokens import RefreshToken
+from .serializers import create_user_with_unique_username
 import csv
 from io import TextIOWrapper
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
+import magic
+from .permissions import IsSubAdmin
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAdminUser
+from rest_framework.exceptions import ValidationError  # needed for validate_file()
+import openpyxl
+from django.utils import timezone
+from django.http import FileResponse
+from tempfile import NamedTemporaryFile
+
 # Admin-only: Create a new student and send email
 
-@api_view(['POST'])
-@permission_classes([])
-def login_view(request):
-    username = request.data.get('username')
-    password = request.data.get('password')
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])   # login view
+def jwt_login_view(request):
+    login_id = request.data.get("username") or request.data.get("student_id")
+    password = request.data.get("password")
 
-    if not username or not password:
-        return Response({'detail': 'Username and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+    if not login_id or not password:
+        return Response({"detail": "username/student_id and password required"},
+                        status=400)
 
-    user = authenticate(username=username, password=password)
+    # allow admission_number login
+    try:
+        user_obj = (User.objects.get(username=login_id) if
+                    User.objects.filter(username=login_id).exists()
+                    else Student.objects.get(admission_number=login_id).user)
+    except (User.DoesNotExist, Student.DoesNotExist):
+        return Response({"detail": "User not found"}, status=401)
 
-    if user is None:
-        return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+    if not user_obj.check_password(password):
+        return Response({"detail": "Invalid credentials"}, status=401)
 
-    token, created = Token.objects.get_or_create(user=user)
-
-    # Determine role
-    is_admin = user.is_staff or user.is_superuser
-    is_student = Student.objects.filter(user=user).exists()
-    
+    refresh = RefreshToken.for_user(user_obj)
     return Response({
-        'token': token.key,
-        'is_admin': is_admin,
-        'is_student': is_student,
-        'username': user.username,
+        "refresh": str(refresh),
+        "access": str(refresh.access_token),
+        "is_admin": user_obj.is_admin,
+        "is_subadmin": user_obj.is_subadmin,
+        "is_student": user_obj.is_student,
+        "username": user_obj.username,
     })
 
 
@@ -115,19 +131,19 @@ class MarkDegreeCompletedView(generics.UpdateAPIView):
         return Response({"message": "Marked as completed"}, status=200)
 
 # Admin-only: Upload a certificate for the student
-class UploadCertificateView(generics.UpdateAPIView):
-    queryset = Student.objects.all()
-    serializer_class = StudentSerializer
+class UploadCertificateView(generics.CreateAPIView):
+    serializer_class = CertificateSerializer  # make one quickly or use FileSerializer
     permission_classes = [permissions.IsAdminUser]
 
     def post(self, request, pk):
-        student = self.get_object()
-        certificate = request.FILES.get('certificate')
-        if certificate:
-            student.certificate = certificate
-            student.save()
-            return Response({"message": "Certificate uploaded."})
-        return Response({"error": "No file provided"}, status=400)
+        student = get_object_or_404(Student, pk=pk)
+        cert_file = request.FILES.get("certificate")
+        if not cert_file:
+            return Response({"error": "No file provided"}, status=400)
+        Certificate.objects.create(
+            student=student, file=cert_file, signed_by=request.user)
+        return Response({"message": "Certificate uploaded"}, status=201)
+
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAdminUser])
@@ -140,28 +156,39 @@ def bulk_add_students(request):
     created_users = []
 
     for row in reader:
-        username = row.get('username')
-        email = row.get('email')
-        if not username or not email:
+        email = row.get("email")
+        first = row.get("first_name", "").strip()
+        last  = row.get("last_name", "").strip()
+        cat   = Category.objects.filter(name=row.get("category")).first()
+
+        if not email or not first:
+            continue
+        if User.objects.filter(email=email).exists():
             continue
 
-        if User.objects.filter(username=username).exists():
-            continue
+        pwd  = User.objects.make_random_password()
+        user = create_user_with_unique_username(first, last, email, pwd, is_student=True)
+        Student.objects.create(user=user, category=cat)
+        created_users.append(user.username)
 
-        password = User.objects.make_random_password()
-        user = User.objects.create_user(username=username, email=email, password=password)
-        Student.objects.create(user=user)
-        created_users.append(username)
+        try:
+            send_mail(
+                "Student Account Created",
+                f"Username: {user.username}\nPassword: {pwd}",
+                settings.EMAIL_HOST_USER,
+                [email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            # Log it or collect failed emails
+            print(f"Email failed for {email}: {e}")
 
-        send_mail(
-            subject="Student Account Created",
-            message=f"Username: {username}\nPassword: {password}",
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[email],
-            fail_silently=False,
-        )
+
 
     return Response({"created": created_users}, status=201)
+
+
+
 
 @api_view(['GET', 'POST'])
 @permission_classes([permissions.IsAdminUser])
@@ -192,18 +219,28 @@ def categorize_student(request, pk):
         return Response({"error": "Student or category not found."}, status=404)
 
 
-class AssignTaskView(generics.CreateAPIView):
-    serializer_class = TaskSerializer
-    permission_classes = [permissions.IsAdminUser]
 
 @api_view(['PATCH'])
 @permission_classes([permissions.IsAdminUser])
 def review_submission(request, submission_id):
-    submission = TaskSubmission.objects.get(id=submission_id)
-    status = request.data.get('review_status')
-    submission.review_status = status
+    try:
+        submission = TaskSubmission.objects.get(id=submission_id)
+    except TaskSubmission.DoesNotExist:
+        return Response({'error': 'Submission not found'}, status=404)
+
+    status_val = request.data.get('review_status')
+    if not status_val:
+        return Response({'error': 'review_status is required'}, status=400)
+
+    submission.review_status = status_val
     submission.save()
     return Response({"message": "Review updated."})
+
+class SubmissionStatusView(generics.ListAPIView):
+    serializer_class = TaskSubmissionSerializer 
+    permission_classes = [IsStudent]
+    def get_queryset(self):
+        return TaskSubmission.objects.filter(student=self.request.user.student)
 
 
 
@@ -215,43 +252,35 @@ class StudentDashboardView(generics.RetrieveAPIView):
     def get_object(self):
         return Student.objects.get(user=self.request.user)
 
-# Admin-only: Upload marks for a student
-class UploadMarksView(generics.CreateAPIView):
-    serializer_class = MarksSerializer
-    permission_classes = [permissions.IsAdminUser]
 
-    def perform_create(self, serializer):
-        marks = serializer.save()
-        ActivityLog.objects.create(student=marks.student, action=f"Marks uploaded for {marks.subject}: {marks.score}")
 
-# Student-only: View their own marks summary
-class MarksSummaryView(generics.ListAPIView):
-    serializer_class = MarksSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return Marks.objects.filter(student__user=self.request.user)
+    
 class CustomTokenView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     
     
     
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([permissions.IsAdminUser])
 def generate_pdf_report(request, student_id):
-    student = Student.objects.get(id=student_id)
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{student.user.username}_report.pdf"'
+    student = get_object_or_404(Student, id=student_id)
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename="{student.user.username}_report.pdf"'
+    )
 
-    p = canvas.Canvas(response)
+    p = canvas.Canvas(response)          # <-- create first
     p.drawString(100, 800, f"Report for {student.user.username}")
     p.drawString(100, 780, f"Degree Completed: {student.degree_completed}")
     p.drawString(100, 760, f"Category: {student.category or 'N/A'}")
-    # Add more info...
+
+    subs = TaskSubmission.objects.filter(student=student)
+    p.drawString(100, 740, f"Total Submissions: {subs.count()}")
 
     p.showPage()
     p.save()
     return response
+
 
 
 
@@ -262,7 +291,7 @@ class TaskListView(generics.ListAPIView):
     def get_queryset(self):
         # Handle case where student profile might not exist
         try:
-            return Task.objects.filter(student=self.request.user.student)
+            return Task.objects.filter(assigned_students=self.request.user.student)
         except Student.DoesNotExist:
             return Task.objects.none()
 
@@ -273,7 +302,7 @@ class TaskDetailView(generics.RetrieveUpdateAPIView):
 
     def get_queryset(self):
         try:
-            return Task.objects.filter(student=self.request.user.student)
+            return Task.objects.filter(assigned_students=self.request.user.student)
         except Student.DoesNotExist:
             return Task.objects.none()
 
@@ -298,6 +327,23 @@ class TaskDetailView(generics.RetrieveUpdateAPIView):
         
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+    
+class SubmitTaskView(generics.CreateAPIView):
+    permission_classes = [IsStudent]
+    serializer_class = TaskSubmissionSerializer
+
+    def create(self, request, *args, **kw):
+        task = get_object_or_404(Task, pk=kw['pk'],
+                                 assigned_students=request.user.student)
+        submission, _ = TaskSubmission.objects.get_or_create(
+            task=task, student=request.user.student)
+        submission.submission_link = request.data['github_link']
+        submission.submitted_at = timezone.now()
+        submission.save()
+        return Response(TaskSubmissionSerializer(submission).data)
+    
+
+
     
 class StudentProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = StudentProfileSerializer
@@ -350,31 +396,97 @@ class StudentProfileApprovalView(generics.CreateAPIView):
         try:
             profile = request.user.student
         except Student.DoesNotExist:
-            return Response(
-                {'error': 'Student profile not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-            
+            return Response({'error': 'Student profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        
         if profile.approval_requested:
-            return Response(
-                {'error': 'Approval already requested'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-            
+            return Response({'error': 'Approval already requested'}, status=status.HTTP_400_BAD_REQUEST)
+        
         profile.approval_requested = True
         profile.save()
-        
-        # Add notification logic here
-        from django.core.mail import send_mail
-        send_mail(
-            'New Profile Approval Request',
-            f'Student {request.user.username} has requested profile approval.',
-            'from@example.com',
-            ['admin@example.com'],
-            fail_silently=False,
+        return Response({'message': 'Approval request submitted.'}, status=status.HTTP_200_OK)
+
+class SubAdminStudentListView(generics.ListAPIView):
+    serializer_class = StudentSerializer
+    permission_classes = [permissions.IsAuthenticated, IsSubAdmin]
+
+    def get_queryset(self):
+        cats = self.request.user.subadmin.categories.all()
+        return Student.objects.filter(category__in=cats)
+
+
+
+ALLOWED_MIME_TYPES = ['application/pdf']
+
+def validate_file(file):
+    mime = magic.from_buffer(file.read(1024), mime=True)
+    file.seek(0)
+    if mime not in ALLOWED_MIME_TYPES:
+        raise ValidationError("Invalid file type.")
+    
+    
+    
+    
+    
+
+
+class AdminResetStudentPassword(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, student_id):
+        student = get_object_or_404(Student, pk=student_id)
+        new_pw  = request.data.get("new_password")
+        if not new_pw:
+            return Response({"detail": "new_password required"}, status=400)
+
+        student.user.set_password(new_pw)
+        student.user.save(update_fields=["password"])
+
+        send_mail(  # optional notification
+            "Your password has been reset",
+            f"Hello {student.user.first_name}, your new password: {new_pw}",
+            settings.EMAIL_HOST_USER,
+            [student.user.email],
+            fail_silently=True,
         )
-        
-        return Response(
-            {'status': 'approval requested'}, 
-            status=status.HTTP_200_OK
-        )
+        return Response({"detail": "Password updated"})
+    
+    
+@api_view(["GET"])
+@permission_classes([permissions.IsAdminUser])
+def export_students_excel(request):
+    """Download an .xlsx file with all students and key fields."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Students"
+
+    # header
+    headers = [
+        "Admission #", "Full Name", "Username", "Email",
+        "Category", "Degree Completed", "Created At"
+    ]
+    ws.append(headers)
+
+    # rows
+    for s in Student.objects.select_related("user", "category"):
+        ws.append([
+            s.admission_number,
+            s.user.get_full_name(),
+            s.user.username,
+            s.user.email,
+            s.category.name if s.category else "",
+            "Yes" if s.degree_completed else "No",
+            timezone.localtime(s.created_at).strftime("%Y-%m-%d"),
+        ])
+
+    # auto-width
+    for col in ws.columns:
+        max_length = max(len(str(cell.value)) for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = max_length + 2
+
+    # save to temp file
+    tmp = NamedTemporaryFile(delete=False, suffix=".xlsx")
+    wb.save(tmp.name)
+    tmp.seek(0)
+
+    filename = f"students_{timezone.now().date()}.xlsx"
+    return FileResponse(tmp, as_attachment=True, filename=filename)

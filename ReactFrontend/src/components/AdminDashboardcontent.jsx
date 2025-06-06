@@ -11,6 +11,7 @@ import {
   MessageCircle,
   FileText
 } from "lucide-react";
+import CategoryIcon from "@mui/icons-material/Category";
 
 const AdminDashboardButtons = () => {
   const navigate = useNavigate();
@@ -63,7 +64,7 @@ const AdminDashboardButtons = () => {
     },
     {
       label: "Add categories",
-      icon: <MessageCircle size={28} />,
+      icon: <CategoryIcon size={28} />,
       route: "/admin/add-category"
     },
     {
